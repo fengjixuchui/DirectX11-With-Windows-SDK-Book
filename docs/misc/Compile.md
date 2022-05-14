@@ -23,15 +23,15 @@
 
 现在以Rendering a Triangle项目为例，现在我们已经编写好的着色器文件有`Triangle.hlsli`, `Triangle_VS.hlsl`, `Triangle_PS.hlsl`这三个，它们存放项目在HLSL文件夹内。现在你可以将它拉进项目当中。
 
-![](https://img2018.cnblogs.com/blog/1172605/201812/1172605-20181204185753974-381761738.png)
+![](..\assets\Compile\04.png)
 
 其中`Triangle.hlsli`作为HLSL的头文件默认不参与项目的编译过程。
 
 而对于`Triangle_VS.hlsl`和`Triangle_PS.hlsl`，则在项目属性要这样设置：
 
-![](https://img2018.cnblogs.com/blog/1172605/201812/1172605-20181204190422570-1879878932.png)
+![](..\assets\Compile\05.png)
 
-![](https://img2018.cnblogs.com/blog/1172605/201812/1172605-20181204190253001-1235721971.png)
+![](..\assets\Compile\06.png)
 
 其中入口点名称指的是该着色器阶段最先开始调用的函数名。比如在C/C++/新建的.hlsl文件中，默认的入口点名称是main。而上面的例子中，我们希望让顶点着色器从`VS`函数开始运行，则需要指定入口点为`VS`。
 
@@ -39,7 +39,7 @@
 
 生成项目后，需要留意在输出窗口(生成)中是否出现了下面的内容：
 
-![](https://img2018.cnblogs.com/blog/1172605/201812/1172605-20181204222348751-969630600.png)
+![](..\assets\Compile\07.png)
 
 **只有出现了上述内容，才说明成功编译出对象文件，否则说明没有被编译出来。**如果你之前已经编译出对象文件，再编译时没有出现该输出结果，可能需要先删除之前编译出来的对象文件再试一次。
 
@@ -75,9 +75,9 @@ HR(md3dDevice->CreateInputLayout(VertexPosColor::inputLayout, ARRAYSIZE(VertexPo
 
 对于`Triangle_VS.hlsl`和`Triangle_PS.hlsl`，在项目属性要这样设置：
 
-![](https://img2018.cnblogs.com/blog/1172605/201904/1172605-20190415210445775-1567213103.png)
+![](..\assets\Compile\01.png)
 
-![](https://img2018.cnblogs.com/blog/1172605/201904/1172605-20190415210451796-361002442.png)
+![](..\assets\Compile\02.png)
 
 这里关于头文件的名称以及内部的全局变量名可以自行决定。
 
@@ -102,7 +102,7 @@ HR(m_pd3dDevice->CreateInputLayout(VertexPosColor::inputLayout, ARRAYSIZE(Vertex
 
 接下来就可以生成整个项目了，需要留意是否有红色部分的输出，否则可能没有成功编译出`.inc`文件(这可能会在已有`.inc`文件再次编译的时候导致出现问题，需要删除原来的`.inc`文件)。
 
-![](https://img2018.cnblogs.com/blog/1172605/201812/1172605-20181204212958311-1494507690.png)
+![](..\assets\Compile\03.png)
 
 由于上述两个头文件的产生(即着色器的编译)先于项目的编译，在没有产生这两个头文件的时候，你也可以忍着编译错误先把上述代码添加进去，然后编译的时候就一切正常了。
 
@@ -149,9 +149,9 @@ HRESULT D3DWriteBlobToFile(
 
 具体用法已经集成在下面的`CreateShaderFromFile`函数中了
 
-# CreateShaderFromFile函数的实现
+## CreateShaderFromFile函数的实现
 
-下面是`CreateShaderFromFile`函数的实现，**现在该函数已经放到了d3dUtil.h中**，需要依赖`dxerr`，你也可以自己修改这个函数的实现：
+下面是`CreateShaderFromFile`函数的实现，**现在该函数已经放到了d3dUtil.h中**：
 
 ```cpp
 // 安全COM组件释放宏
@@ -223,7 +223,61 @@ HR(m_pd3dDevice->CreateInputLayout(VertexPosColor::inputLayout, ARRAYSIZE(Vertex
     blob->GetBufferPointer(), blob->GetBufferSize(), m_pVertexLayout.GetAddressOf()));
 ```
 
-参考文章：
+# 方法4：使用fxc命令行程序+编写批处理+利用VS项目预先编译
+
+>  **注意：初学者只需要会用方法1或方法3来编译着色器即可，这条需要熟悉命令行，能尝试编写批处理，并且可能会修改到.vcxproj。**
+
+因为我一直挺好奇DirectXTK是怎么做到没有在项目属性中添加配置却能够在编译程序之前先调用命令行程序编译着色器，现在大概是找到门路了。
+
+## fxc命令行程序
+
+首先了解怎么使用fxc命令行程序来编译着色器，找到64位fxc.exe，有可能放在`C:\Program Files (x86)\Windows Kits\10\bin\10.0.XXXXX.0\x64\`，或者利用Everything等工具来寻找。
+
+打开命令行，跳转到fxc.exe所在位置，然后运行：
+
+```bat
+fxc /?
+```
+
+然后可以看到fxc编译选项的含义，下面列出一些常用的：
+
+| 选项             | 含义                                                         |
+| ---------------- | ------------------------------------------------------------ |
+| `/T <profile>`   | 着色器模型，常用的`<profile>`有：`cs_4_0`, `vs_5_0`, `ps_5_0`等 |
+| `/E <name>`      | 入口点名称，以哪个函数名作为shader的入口                     |
+| `/I <include>`   | 附加包含路径                                                 |
+| `/Od`            | 禁用优化（调试着色器必须）                                   |
+| `/O{0,1,2,3}`    | 优化级别0到3，默认是1                                        |
+| `/Zi`            | 启用调试信息（调试着色器必须）                               |
+| `/Fo <file>`     | 输出编译好的二进制对象文件（通常指cso文件）                  |
+| `/Fh <file>`     | 输出包含二进制对象编码的头文件（如方法二）                   |
+| `/P <file>`      | 将预处理阶段后的文本保存到文件（必须单独使用）               |
+| `/D <id>=<text>` | 预定义宏                                                     |
+| `/Ges`           | 强制严格编译，可能不允许使用旧语法。                         |
+| `/nologo`        | 编译的时候不输出版权信息                                     |
+| `/WX`            | 警告视为错误                                                 |
+
+以第二章的HLSL文件为例，编译`Triangle_VS.hlsl`输出`Triangle_VS.cso`
+
+在Release模式下，与方法1等价的命令行为：
+
+``` bat
+fxc "path/to/Triangle_VS.hlsl" /E VS /Fo "path/to/Triangle_VS.cso" /T vs_5_0 /nologo
+```
+
+在Debug模式下，与方法1等价的命令行为：
+
+```bat
+fxc "path/to/Triangle_VS.hlsl" /Zi /Od /E VS /Fo "path/to/Triangle_VS.cso" /T vs_5_0 /nologo
+```
+
+而前面提到的`D3DCOMPILE_ENABLE_STRICTNESS`对应`/Ges`选项
+
+## 批处理
+
+
+
+# 参考文献
 
 [Compiling Shaders](https://docs.microsoft.com/zh-cn/windows/desktop/direct3dhlsl/dx-graphics-hlsl-part1#compiling-with-d3dcompilefromfile)
 
